@@ -2,7 +2,7 @@ import cv2
 import numpy as num
 
 
-# German Burset Romero, Katerine Gomez, & Christ Nunez
+# German Burset Romero, Katerine Gomez, Ismael Hassan, & Christ Nunez
 # Final project / CSIT 200-01 Python Programming
 # This project is to ...
 
