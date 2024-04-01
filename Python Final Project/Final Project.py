@@ -1,109 +1,99 @@
-# import the necessary packages
-from collections import deque
-from imutils.video import VideoStream
-import numpy as np
-import argparse
 import cv2
-import imutils
-import time
-# construct the argument parse and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-v", "--video",
-	help="path to the (optional) video file")
-ap.add_argument("-b", "--buffer", type=int, default=64,
-	help="max buffer size")
-args = vars(ap.parse_args())
+import numpy as np
 
-# define the lower and upper boundaries of the "white"
-# ball in the HSV color space, then initialize the
-# list of tracked points
-sensitivity = 15
-lower_white = np.array([0,0,255-sensitivity])
-upper_white = np.array([255,sensitivity,255])
-pts = deque(maxlen=args["buffer"])
+mouse_x, mouse_y = -1, -1
 
-# if a video path was not supplied, grab the reference
-# to the webcam
-if not args.get("video", False):
-	vs = VideoStream(src=0).start()
-# otherwise, grab a reference to the video file
-else:
-	vs = cv2.VideoCapture(args["video"])
- 
-# allow the camera or video file to warm up
-time.sleep(2.0)
+def mouse_callback(event, x, y, flags, param):
+    global mouse_x, mouse_y
+    if event == cv2.EVENT_MOUSEMOVE:
+        mouse_x, mouse_y = x, y
 
-# keep looping
+def detect_white_ball(frame):
+    # Convert BGR to HSV
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    # Define range of white color in HSV
+    lower_red = np.array([0,10,100])
+    upper_red = np.array([10,255,255])
+
+    # Threshold the HSV image to get only white colors
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    
+    # Find contours in the mask
+    contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Initialize ball position as None
+    ball_position = None
+    
+    # If contours are found
+    if contours:
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Get the minimum enclosing circle
+        ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
+        
+        # Convert float coordinates to integers
+        center = (int(x), int(y))
+        radius = int(radius)
+        
+        # Draw the circle
+        cv2.circle(frame, center, radius, (0, 255, 0), 2)
+        
+        ball_position = center
+    
+    return ball_position
+
+# Initialize video capture
+cap = cv2.VideoCapture(1)
+
+cv2.namedWindow('White Ball Tracker')
+cv2.setMouseCallback('White Ball Tracker', mouse_callback)
+
+# For me: Change coordinates based off camera!
+# [(x1, y1), (x2, y2)] -> [(top right), (bottom left)]
+line = [(683, 457), (1052, 534)]
+
 while True:
-	# grab the current frame
-	frame = vs.read()
-	# handle the frame from VideoCapture or VideoStream
-	frame = frame[1] if args.get("video", False) else frame
-	# if we are viewing a video and we did not grab a frame,
-	# then we have reached the end of the video
-	if frame is None:
-		break
-	# resize the frame, blur it, and convert it to the HSV
-	# color space
-	frame = imutils.resize(frame, width=600)
-	blurred = cv2.GaussianBlur(frame, (11, 11), 0)
-	hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-	# construct a mask for the color "white", then perform
-	# a series of dilations and erosions to remove any small
-	# blobs left in the mask
-	mask = cv2.inRange(hsv, lower_white, upper_white)
-	mask = cv2.erode(mask, None, iterations=2)
-	mask = cv2.dilate(mask, None, iterations=2)
- 
-    # find contours in the mask and initialize the current
-	# (x, y) center of the ball
-	cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-		cv2.CHAIN_APPROX_SIMPLE)
-	cnts = imutils.grab_contours(cnts)
-	center = None
- 
-	# only proceed if at least one contour was found
-	if len(cnts) > 0:
-		# find the largest contour in the mask, then use
-		# it to compute the minimum enclosing circle and
-		# centroid
-		c = max(cnts, key=cv2.contourArea)
-		((x, y), radius) = cv2.minEnclosingCircle(c)
-		M = cv2.moments(c)
-		center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-		# only proceed if the radius meets a minimum size
-		if radius > 10:
-			# draw the circle and centroid on the frame,
-			# then update the list of tracked points
-			cv2.circle(frame, (int(x), int(y)), int(radius),
-				(0, 255, 255), 2)
-			cv2.circle(frame, center, 5, (0, 0, 255), -1)
-   
-	# update the points queue
-	pts.appendleft(center)
-    # loop over the set of tracked points
-	for i in range(1, len(pts)):
-		# if either of the tracked points are None, ignore
-		# them
-		if pts[i - 1] is None or pts[i] is None:
-			continue
-		# otherwise, compute the thickness of the line and
-		# draw the connecting lines
-		thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
-		cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
-  
-	# show the frame to our screen
-	cv2.imshow("Frame", frame)
-	key = cv2.waitKey(1) & 0xFF
-	# if the 'q' key is pressed, stop the loop
-	if key == ord("q"):
-		break
+    # Read a frame from the video capture
+    ret, frame = cap.read()
+    if not ret:
+        break
+    
+    # Detect white ball
+    ball_position = detect_white_ball(frame)
+    
+    # If ball is detected, draw a circle around it
+    if ball_position:
+        # Check if the ball's position is within the line region
+        if (line[0][0] < ball_position[0] < line[1][0] and
+            line[0][1] < ball_position[1] < line[1][1]):
+            # Change the color of the circle
+            circle_color = (40, 255, 255)  # Yellow
+        else:
+            # Reset the color to green
+            circle_color = (0, 255, 0)
+        
+        # Draw the circle
+        cv2.circle(frame, ball_position, 10, circle_color, -1)
+    
+    # Display mouse cursor position on the frame
+    cv2.putText(frame, f"Mouse Position: ({mouse_x}, {mouse_y})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-# if we are not using a video file, stop the camera video stream
-if not args.get("video", False):
-	vs.stop()
-# otherwise, release the camera
-else:
-	vs.release()
-# close all windows
+    # Display the frame
+    cv2.imshow('White Ball Tracker', frame)
+
+    #y1 = 457
+    #y2 = 534
+    #x1 = 683
+    #x2 = 1052
+    #line = frame[457: 534, 683: 1052]
+
+    #cv2.imshow("line", line)
+    
+    # Break the loop if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the video capture
+cap.release()
 cv2.destroyAllWindows()
