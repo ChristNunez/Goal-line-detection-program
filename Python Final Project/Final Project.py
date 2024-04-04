@@ -1,49 +1,61 @@
+# Authors: Christ Nunez, Ismail Hassan, German Burset Romero
+
+# This program utilizes the OpenCV library and numpy, which OpenCV depends on,
+# in order to create a small-scale goal-line detection system of the actual
+# system utilized in professional soccer. Image manipulation, mouse recognition,
+# color recognition, shape recognition, and camera coordinates were utilized
+# in order to check if a ball crosses over the line.
+
+# import opencv and numpy libraries
 import cv2
 import numpy as np
 
+# setting initial mouse position
 mouse_x, mouse_y = -1, -1
 
+# mouse callback function to detect mouse movement across the frame
 def mouse_callback(event, x, y, flags, param):
     global mouse_x, mouse_y
     if event == cv2.EVENT_MOUSEMOVE:
         mouse_x, mouse_y = x, y
 
+# function which manipulates original camera frame, detects color, and detects a ball
 def detect_white_ball(frame):
-    # Convert BGR to HSV
+    # convert BGR to HSV (original rgb video to hsv to more easily detect ball)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     
-    # Define range of white color in HSV
-    lower_red = np.array([0,10,100])
-    upper_red = np.array([10,255,255])
+    # define range of blue color in HSV
+    lower_blue = np.array([110, 50, 50]) 
+    upper_blue = np.array([130, 255, 255])
 
-    # Threshold the HSV image to get only white colors
-    mask = cv2.inRange(hsv, lower_red, upper_red)
+    # make hsv image get only blue colors
+    mask = cv2.inRange(hsv, lower_blue, upper_blue)
     
-    # Find contours in the mask
+    # find contours in the mask
     contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Initialize ball position as None
+    # initialize ball position
     ball_position = None
     
-    # If contours are found
+    # check if contours are found and returns the largest one
     if contours:
         largest_contour = max(contours, key=cv2.contourArea)
         
-        # Get the minimum enclosing circle
+        # get the minimum diameter that would enclose the largest contour
         ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
         
-        # Convert float coordinates to integers
+        # convert float coordinates to integers
         center = (int(x), int(y))
         radius = int(radius)
         
-        # Draw the circle
+        # draw circle
         cv2.circle(frame, center, radius, (0, 255, 0), 2)
         
         ball_position = center
     
     return ball_position
 
-# Initialize video capture
+# initialize video capture
 cap = cv2.VideoCapture(1)
 
 cv2.namedWindow('White Ball Tracker')
@@ -51,7 +63,7 @@ cv2.setMouseCallback('White Ball Tracker', mouse_callback)
 
 # For me: Change coordinates based off camera!
 # [(x1, y1), (x2, y2)] -> [(top right), (bottom left)]
-line = [(683, 457), (1052, 534)]
+line = [(1, 449), (1269, 637)]
 
 while True:
     # Read a frame from the video capture
@@ -62,35 +74,30 @@ while True:
     # Detect white ball
     ball_position = detect_white_ball(frame)
     
-    # If ball is detected, draw a circle around it
+    cv2.line(frame, line[1], (line[0][0], line[1][1]), (255, 255, 255), 2)
+
+    # if ball is detected, draw a circle around it
+    # if ball is past line, change center circle's color
     if ball_position:
-        # Check if the ball's position is within the line region
-        if (line[0][0] < ball_position[0] < line[1][0] and
-            line[0][1] < ball_position[1] < line[1][1]):
-            # Change the color of the circle
-            circle_color = (40, 255, 255)  # Yellow
+        # check if the ball's position is past (below) the line region
+        if (ball_position[1] >= line[1][1]):
+            # change the color of the circle
+            circle_color = (0, 255, 0)  # Green
         else:
-            # Reset the color to green
-            circle_color = (0, 255, 0)
+            # reset color to red
+            circle_color = (0, 0, 255)
         
-        # Draw the circle
+        # draw circle
         cv2.circle(frame, ball_position, 10, circle_color, -1)
     
-    # Display mouse cursor position on the frame
+    # display mouse cursor position on the video (can be removed once line won't move)
     cv2.putText(frame, f"Mouse Position: ({mouse_x}, {mouse_y})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, f"Ball Position: {ball_position}", (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    # Display the frame
+    # display frame
     cv2.imshow('White Ball Tracker', frame)
-
-    #y1 = 457
-    #y2 = 534
-    #x1 = 683
-    #x2 = 1052
-    #line = frame[457: 534, 683: 1052]
-
-    #cv2.imshow("line", line)
     
-    # Break the loop if 'q' is pressed
+    # break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
