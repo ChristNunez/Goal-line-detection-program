@@ -47,21 +47,22 @@ def detect_white_ball(frame):
         # convert float coordinates to integers
         center = (int(x), int(y))
         radius = int(radius)
+        top_point = (center[0], center[1] - radius)
         
         # draw circle
         cv2.circle(frame, center, radius, (0, 255, 0), 2)
         
-        ball_position = center
+        ball_position = top_point
     
     return ball_position
 
 # initialize video capture
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(2)
 
-cv2.namedWindow('White Ball Tracker')
-cv2.setMouseCallback('White Ball Tracker', mouse_callback)
+cv2.namedWindow('Goal Line System')
+cv2.setMouseCallback('Goal Line System', mouse_callback)
 
-line = [(1, 449), (1269, 637)]
+line = [(0, 354), (637, 354)]
 
 while True:
     # read a frame from the video capture
@@ -69,7 +70,6 @@ while True:
     if not ret:
         break
     
-    # detect ball
     ball_position = detect_white_ball(frame)
     
     cv2.line(frame, line[1], (line[0][0], line[1][1]), (255, 255, 255), 2)
@@ -94,12 +94,12 @@ while True:
         # draw circle
         cv2.circle(frame, ball_position, 10, circle_color, -1)
     
-    # display mouse cursor position on the video (can be removed once line won't move)
+    #display mouse cursor position on the video (can be removed once line won't move)
     #cv2.putText(frame, f"Mouse Position: ({mouse_x}, {mouse_y})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     #cv2.putText(frame, f"Ball Position: {ball_position}", (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     # display frame
-    cv2.imshow('White Ball Tracker', frame)
+    cv2.imshow('Goal Line System', frame)
     
     # break the loop if 'q' is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
