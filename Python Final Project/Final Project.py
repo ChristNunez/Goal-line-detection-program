@@ -20,7 +20,7 @@ def mouse_callback(event, x, y, flags, param):
         mouse_x, mouse_y = x, y
 
 # function which manipulates original camera frame, detects color, and detects a ball
-def detect_white_ball(frame):
+def detect_ball(frame):
     # convert BGR to HSV (original rgb video to hsv to more easily detect ball)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     
@@ -70,7 +70,7 @@ while True:
     if not ret:
         break
     
-    ball_position = detect_white_ball(frame)
+    ball_position = detect_ball(frame)
     
     cv2.line(frame, line[1], (line[0][0], line[1][1]), (255, 255, 255), 2)
 
